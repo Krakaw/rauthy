@@ -48,7 +48,7 @@ async fn main() {
             None
         }
     });
-    let routes = warp::path("auth")
+    let routes = warp::any()
         .and(config.clone())
         .and(db.clone())
         .and(ips)
