@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Krakaw <41575888+Krakaw@users.noreply.github.com>"]
 edition = "2018"
 
+[[bin]]
+name = "nginx-auth"
+path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
