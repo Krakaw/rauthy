@@ -1,7 +1,7 @@
 version: '3'
 services:
   api:
-    image: nginx-auth:latest
+    image: quay.io/krakaw/nginx-auth:latest
     environment:
       - LISTEN=0.0.0.0:3031
       - BASIC_AUTH_USER=username
