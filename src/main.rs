@@ -48,12 +48,14 @@ async fn main() {
             None
         }
     });
-    let routes = warp::any()
+    let routes = warp::path::end()
         .and(config.clone())
         .and(db.clone())
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
-        .and_then(auth);
+        .and_then(auth)
+        .or(warp::path("status").map(|| StatusCode::OK));
+
     warp::serve(routes).run(listen).await;
 }
 
