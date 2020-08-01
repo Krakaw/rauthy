@@ -1,6 +1,7 @@
 mod config;
 
 use crate::config::Config;
+use clap::clap_app;
 use log::info;
 use serde::Deserialize;
 use std::net::IpAddr;
@@ -10,47 +11,70 @@ use tokio::sync::Mutex;
 use warp::http::{HeaderMap, StatusCode};
 use warp::Filter;
 
-#[tokio::main]
-async fn main() {
-    env_logger::init();
-    let config = config::Config::new().await;
-    let listen = config.listen.clone();
-    let config = Arc::new(Mutex::new(config));
-    let config = warp::any().map(move || Arc::clone(&config));
-
-    let ips = warp::header::headers_cloned().map(|headers: HeaderMap| {
-        if headers.contains_key("http-client-ip") {
-            headers
-                .get("http-client-ip")
-                .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
-        } else if headers.contains_key("x-forwarded-for") {
-            headers
-                .get("x-forwarded-for")
-                .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
-        } else {
-            None
-        }
-    });
-    let routes = warp::path::end()
-        .and(warp::get())
-        .and(config.clone())
-        .and(ips)
-        .and(warp::header::optional::<String>("authorization"))
-        .and_then(auth)
-        .or(warp::post()
-            .and(warp::body::json())
-            .and(config.clone())
-            .and_then(add_user))
-        .or(warp::path("status").map(|| StatusCode::OK));
-
-    warp::serve(routes).run(listen).await;
-}
-
-#[derive(Debug, Deserialize)]
-struct AddUser {
+#[derive(Deserialize)]
+pub struct AddUser {
     pub username: String,
     pub password: String,
 }
+
+#[tokio::main]
+async fn main() {
+    env_logger::init();
+    let matches = clap_app!(myapp =>
+        (version: "0.1.2")
+        (author: "Krakaw <41575888+Krakaw@users.noreply.github.com>")
+        (about: "An auth resolver for nginx")
+        (@arg server: -s --server "Start the auth server")
+        (@subcommand user =>
+            (about: "Add basic auth users")
+            (@arg username: -u --username +required +takes_value "Sets the username")
+            (@arg password: -p --password +required +takes_value "Sets the password")
+        )
+    )
+    .get_matches();
+
+    let config = config::Config::new().await;
+    let listen = config.listen.clone();
+    let config = Arc::new(Mutex::new(config));
+    if let Some(matches) = matches.subcommand_matches("user") {
+        let user = AddUser {
+            username: matches.value_of("username").unwrap().to_string(),
+            password: matches.value_of("password").unwrap().to_string(),
+        };
+        add_user(user, config.clone()).await;
+    }
+    let config = warp::any().map(move || Arc::clone(&config));
+
+    if matches.is_present("server") {
+        let ips = warp::header::headers_cloned().map(|headers: HeaderMap| {
+            if headers.contains_key("http-client-ip") {
+                headers
+                    .get("http-client-ip")
+                    .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
+            } else if headers.contains_key("x-forwarded-for") {
+                headers
+                    .get("x-forwarded-for")
+                    .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
+            } else {
+                None
+            }
+        });
+        let routes = warp::path::end()
+            .and(warp::get())
+            .and(config.clone())
+            .and(ips)
+            .and(warp::header::optional::<String>("authorization"))
+            .and_then(auth)
+            .or(warp::post()
+                .and(warp::body::json())
+                .and(config.clone())
+                .and_then(add_user))
+            .or(warp::path("status").map(|| StatusCode::OK));
+
+        warp::serve(routes).run(listen).await;
+    }
+}
+
 async fn add_user(
     body: AddUser,
     config: Arc<Mutex<Config>>,
