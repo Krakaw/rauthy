@@ -1,7 +1,8 @@
 mod config;
 
 use crate::config::Config;
-use log::{info, warn};
+use log::info;
+use serde::Deserialize;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -31,22 +32,46 @@ async fn main() {
         }
     });
     let routes = warp::path::end()
+        .and(warp::get())
         .and(config.clone())
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
         .and_then(auth)
+        .or(warp::post()
+            .and(warp::body::json())
+            .and(config.clone())
+            .and_then(add_user))
         .or(warp::path("status").map(|| StatusCode::OK));
 
     warp::serve(routes).run(listen).await;
 }
 
+#[derive(Debug, Deserialize)]
+struct AddUser {
+    pub username: String,
+    pub password: String,
+}
+async fn add_user(
+    body: AddUser,
+    config: Arc<Mutex<Config>>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut config = config.lock().await;
+    let encoded = base64::encode_config(
+        format!("{}:{}", body.username, body.password),
+        base64::URL_SAFE,
+    );
+    config.auth_options.users.insert(encoded, body.username);
+    config.write().await;
+
+    Ok(StatusCode::CREATED)
+}
+
 async fn auth(
     config: Arc<Mutex<Config>>,
     client_ip: Option<IpAddr>,
-    auth: Option<String>,
+    auth_header: Option<String>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut config = config.lock().await;
-
     let mut authorized = false;
     if client_ip.is_some() {
         let client_ip = client_ip.unwrap();
@@ -59,10 +84,19 @@ async fn auth(
         {
             authorized = true;
         }
+
         //Check the auth
-        if let Some(auth) = auth {
-            if auth == format!("Basic {}", config.encoded_auth) {
-                info!("Successful Authentication: {}", client_ip.clone());
+        if let Some(auth_header) = auth_header {
+            if let Some(user) = config
+                .auth_options
+                .users
+                .get(&auth_header.replace("Basic ", ""))
+            {
+                info!(
+                    "Successful Authentication for '{}' from '{}'",
+                    user,
+                    client_ip.clone()
+                );
                 authorized = true;
                 config.auth_options.ips.push(client_ip);
                 config.write().await;
