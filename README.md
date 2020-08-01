@@ -3,9 +3,20 @@
 Nginx Auth is a simple web server that requires an IP to first enter basic auth information,
 after initial auth is complete, that IP no longer requires to send the basic auth headers with each request.
 
-## Installation
+## Usage
 
 Ensure your nginx configuration supports [subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/)
+
+Download the latest release from [Github](https://github.com/Krakaw/nginx-auth/releases)
+
+Set your .env
+
+```bash
+curl https://raw.githubusercontent.com/Krakaw/nginx-auth/master/.env.sample -o .env
+./nginx-auth
+```
+
+Configure nginx
 
 ```nginx
 location /private {
@@ -24,12 +35,14 @@ location = /auth {
 }
 ```
 
+### Docker
 
 ```bash
-
+docker build -t nginx-auth:latest .
+docker-compose up
 ```
 
-## Usage
+### Installation
 
 ```bash
 git clone https://github.com/Krakaw/nginx-auth.git
