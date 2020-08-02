@@ -1,5 +1,5 @@
 use crate::config::config::Config;
-use crate::AddUser;
+use serde::{Deserialize};
 use log::info;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -7,6 +7,12 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::http::{HeaderMap, StatusCode};
 use warp::Filter;
+
+#[derive(Deserialize)]
+pub struct AddUser {
+    pub username: String,
+    pub password: String,
+}
 
 pub async fn start(config: Config) {
     let listen = config.listen.clone();
