@@ -40,6 +40,7 @@ async fn main() {
             username: matches.value_of("username").unwrap().to_string(),
             password: matches.value_of("password").unwrap().to_string(),
         };
+        config.auth_options.remove_user(user.username.clone());
         config.auth_options.add_user(user.username, user.password);
         config.write().await;
         return;

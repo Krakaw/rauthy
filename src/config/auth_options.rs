@@ -17,4 +17,16 @@ impl AuthOptions {
         let encoded = base64::encode_config(format!("{}:{}", username, password), base64::URL_SAFE);
         self.users.insert(encoded, username);
     }
+
+    pub fn remove_user(&mut self, username: String) {
+        let empties: Vec<_> = self
+            .users
+            .iter()
+            .filter(|(_, v)| v == &&username)
+            .map(|(k, _)| k.clone())
+            .collect();
+        for empty in empties {
+            self.users.remove(&empty);
+        }
+    }
 }

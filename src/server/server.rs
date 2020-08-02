@@ -43,11 +43,12 @@ pub async fn start(config: Config) {
 }
 
 pub async fn add_user(
-    body: AddUser,
+    user: AddUser,
     config: Arc<Mutex<Config>>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut config = config.lock().await;
-    config.auth_options.add_user(body.username, body.password);
+    config.auth_options.remove_user(user.username.clone());
+    config.auth_options.add_user(user.username, user.password);
     config.write().await;
 
     Ok(StatusCode::CREATED)
