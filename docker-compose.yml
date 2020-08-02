@@ -4,16 +4,18 @@ services:
     image: quay.io/krakaw/nginx-auth:latest
     environment:
       - LISTEN=0.0.0.0:3031
-      - BASIC_AUTH_USER=username
-      - BASIC_AUTH_PASS=password
       - BASIC_AUTH_MESSAGE="Once off auth wall"
-      - CACHE_FILE=cache
+      - AUTH_FILE=/root/config/auth.json
     ports:
       - 3031:3031
     restart: unless-stopped
+    volumes:
+    - config:/root/config
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3031/status"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+volumes:
+  config:
