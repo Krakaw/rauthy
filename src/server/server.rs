@@ -1,7 +1,6 @@
 use crate::config::config::Config;
 use crate::AddUser;
 use log::info;
-use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;

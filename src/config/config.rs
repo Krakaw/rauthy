@@ -1,8 +1,6 @@
 use crate::config::auth_options::AuthOptions;
-use serde::{Deserialize, Serialize};
 use serde_json::Result;
-use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{SocketAddr};
 use tokio::fs::File;
 use tokio::prelude::*; // for write_all()
 

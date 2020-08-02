@@ -1,17 +1,10 @@
 mod config;
 mod server;
 
-use crate::server::server::{add_user, start};
+use crate::server::server::{start};
 use clap::clap_app;
 use config::config::Config;
-use log::info;
 use serde::Deserialize;
-use std::net::IpAddr;
-use std::str::FromStr;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use warp::http::{HeaderMap, StatusCode};
-use warp::Filter;
 
 #[derive(Deserialize)]
 pub struct AddUser {
@@ -32,7 +25,7 @@ async fn main() {
             (@arg password: -p --password +required +takes_value "Sets the password")
         )
     )
-    .get_matches();
+        .get_matches();
 
     let mut config = Config::new().await;
     if let Some(matches) = matches.subcommand_matches("user") {
