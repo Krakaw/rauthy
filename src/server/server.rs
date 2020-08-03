@@ -32,17 +32,19 @@ pub async fn start(config: Config) {
             None
         }
     });
-    let routes = warp::path::end()
-        .and(warp::get())
+    let status_route = warp::path("status").map(|| StatusCode::OK);
+    let user_route = warp::path("user").and(warp::post())
+        .and(warp::body::json())
+        .and(config.clone())
+        .and_then(add_user);
+    let auth_route = warp::any()
         .and(config.clone())
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
-        .and_then(auth)
-        .or(warp::post()
-            .and(warp::body::json())
-            .and(config.clone())
-            .and_then(add_user))
-        .or(warp::path("status").map(|| StatusCode::OK));
+        .and_then(auth);
+    let routes = user_route
+        .or(status_route)
+        .or(auth_route);
 
     warp::serve(routes).run(listen).await;
 }
