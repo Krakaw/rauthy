@@ -13,6 +13,11 @@ Set your .env
 
 ```bash
 curl https://raw.githubusercontent.com/Krakaw/nginx-auth/master/.env.sample -o .env
+# Add a username and password
+nginx-auth user -u username -p password
+# Add an optional command to be run on successful auth
+nginx-auth cmd -u username -c 'echo "my command"'
+# Start the server
 ./nginx-auth
 ```
 
