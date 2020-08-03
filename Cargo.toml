@@ -1,6 +1,6 @@
 [package]
 name = "nginx-auth"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Krakaw <41575888+Krakaw@users.noreply.github.com>"]
 edition = "2018"
 
