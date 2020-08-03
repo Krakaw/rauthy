@@ -1,6 +1,7 @@
 use crate::config::config::Config;
-use serde::{Deserialize};
+use crate::error::NginxAuthError;
 use log::info;
+use serde::Deserialize;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ pub struct AddUser {
     pub password: String,
 }
 
-pub async fn start(config: Config) {
+pub async fn start(config: Config) -> Result<(), NginxAuthError> {
     let listen = config.listen.clone();
     let config = Arc::new(Mutex::new(config));
     let config = warp::any().map(move || Arc::clone(&config));
@@ -33,7 +34,8 @@ pub async fn start(config: Config) {
         }
     });
     let status_route = warp::path("status").map(|| StatusCode::OK);
-    let user_route = warp::path("user").and(warp::post())
+    let user_route = warp::path("user")
+        .and(warp::post())
         .and(warp::body::json())
         .and(config.clone())
         .and_then(add_user);
@@ -42,11 +44,10 @@ pub async fn start(config: Config) {
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
         .and_then(auth);
-    let routes = user_route
-        .or(status_route)
-        .or(auth_route);
+    let routes = user_route.or(status_route).or(auth_route);
 
     warp::serve(routes).run(listen).await;
+    Ok(())
 }
 
 pub async fn add_user(
@@ -56,7 +57,7 @@ pub async fn add_user(
     let mut config = config.lock().await;
     config.auth_options.remove_user(user.username.clone());
     config.auth_options.add_user(user.username, user.password);
-    config.write().await;
+    config.write().await?;
 
     Ok(StatusCode::CREATED)
 }
@@ -66,37 +67,47 @@ async fn auth(
     client_ip: Option<IpAddr>,
     auth_header: Option<String>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    log::debug!("Auth request from {:?} with auth {:?}", client_ip.clone(), auth_header.clone());
+    log::debug!(
+        "Auth request from {:?} with auth {:?}",
+        client_ip.clone(),
+        auth_header.clone()
+    );
     let mut config = config.lock().await;
     let mut authorized = false;
     if client_ip.is_some() {
         let client_ip = client_ip.unwrap();
-        if config
-            .auth_options
-            .ips
-            .iter()
-            .find(|ip| **ip == client_ip)
-            .is_some()
-        {
+        let ip_exists = config.auth_options.ips.contains_key(&client_ip);
+        if ip_exists {
             log::debug!("IP found, authorizing");
             authorized = true;
         }
 
         //Check the auth
         if let Some(auth_header) = auth_header {
-            if let Some(user) = config
-                .auth_options
-                .users
-                .get(&auth_header.replace("Basic ", ""))
-            {
+            let map = &config.auth_options.passwords.clone();
+            let user = map.get(&auth_header.replace("Basic ", ""));
+            if user.is_some() {
+                let user = user.unwrap();
+                authorized = true;
+                let entry = config.auth_options.ips.entry(client_ip).or_insert(vec![]);
+                if entry.iter().filter(|u| u == &user).count() == 0 {
+                    entry.push(user.clone());
+                }
+
+                config.write().await?;
                 info!(
-                    "Successful Authentication for '{}' from '{}'",
+                    "Successful Authentication for '{}' from '{}' - adding ip to allowlist",
                     user,
                     client_ip.clone()
                 );
-                authorized = true;
-                config.auth_options.ips.push(client_ip);
-                config.write().await;
+
+                if let Some(commands) = config.auth_options.commands.get(user) {
+                    for command in commands {
+                        log::debug!("Executing command {}", command);
+                        let output = command.run();
+                        log::trace!("Output results {:#?}", output);
+                    }
+                };
             }
         }
     }
