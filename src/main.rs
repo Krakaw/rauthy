@@ -28,8 +28,9 @@ async fn main() {
         let username = matches.value_of("username").unwrap().to_string();
         let password = matches.value_of("password").unwrap().to_string();
 
+        log::info!("Adding user: {}", username);
         config.auth_options.remove_user(username.clone());
-        config.auth_options.add_user(username, password);
+        config.auth_options.add_user(username.clone(), password);
         config.write().await;
         return;
     }

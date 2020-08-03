@@ -1,5 +1,4 @@
 use crate::config::auth_options::AuthOptions;
-use serde_json::Result;
 use std::net::{SocketAddr};
 use tokio::fs::File;
 use tokio::prelude::*; // for write_all()
@@ -32,9 +31,10 @@ impl Config {
 
     pub async fn load_file(auth_file: Option<String>) -> AuthOptions {
         if let Some(auth_file) = auth_file {
-            if let Ok(contents) = tokio::fs::read_to_string(auth_file).await {
+            if let Ok(contents) = tokio::fs::read_to_string(auth_file.clone()).await {
                 AuthOptions::from_string(contents)
             } else {
+                log::error!("Error loading {} using default", auth_file);
                 AuthOptions::default()
             }
         } else {
@@ -42,14 +42,15 @@ impl Config {
         }
     }
 
-    pub async fn write(&self) -> Result<()> {
+    pub async fn write(&self) {
         if let Some(auth_file) = self.auth_file.clone() {
-            if let Ok(mut file) = File::create(auth_file).await {
+            if let Ok(mut file) = File::create(auth_file.clone()).await {
                 let json = serde_json::to_string(&self.auth_options).unwrap();
-                file.write_all(json.as_bytes()).await;
+                match file.write_all(json.as_bytes()).await {
+                    Ok(_) => log::info!("Successfully wrote {}", auth_file),
+                    Err(e) => log::error!("Error writing {} {}", auth_file, e)
+                }
             }
         }
-
-        Ok(())
     }
 }

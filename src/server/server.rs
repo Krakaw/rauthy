@@ -66,6 +66,7 @@ async fn auth(
     client_ip: Option<IpAddr>,
     auth_header: Option<String>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
+    log::debug!("Auth request from {:?} with auth {:?}", client_ip.clone(), auth_header.clone());
     let mut config = config.lock().await;
     let mut authorized = false;
     if client_ip.is_some() {
@@ -77,6 +78,7 @@ async fn auth(
             .find(|ip| **ip == client_ip)
             .is_some()
         {
+            log::debug!("IP found, authorizing");
             authorized = true;
         }
 
@@ -103,6 +105,7 @@ async fn auth(
     let result = if authorized {
         (StatusCode::OK, "X-Pre-Authenticated", "True".to_string())
     } else {
+        log::debug!("Invalid IP and password, requesting auth.");
         (
             StatusCode::UNAUTHORIZED,
             "WWW-Authenticate",
