@@ -88,13 +88,10 @@ async fn main() -> Result<(), NginxAuthError> {
     }
 
     if let Some(matches) = matches.subcommand_matches("bypass") {
-        let bypass = matches.value_of("key").and_then(|s| {
-            if s.is_empty() {
-                None
-            } else {
-                Some(s.to_string())
-            }
-        });
+        let bypass = matches
+            .value_of("key")
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty());
 
         log::info!("Setting bypass key to: {:?}", bypass);
         config.auth_options.add_bypass(bypass);
