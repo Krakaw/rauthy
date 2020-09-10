@@ -15,6 +15,11 @@ pub struct AddUser {
     pub password: String,
 }
 
+#[derive(Deserialize, Default)]
+struct Bypass {
+    bypass: Option<String>,
+}
+
 pub async fn start(config: Config) -> Result<(), NginxAuthError> {
     let listen = config.listen.clone();
     let config = Arc::new(Mutex::new(config));
@@ -43,6 +48,7 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
         .and(config.clone())
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
+        .and(warp::query().map(|r: Bypass| r.bypass))
         .and_then(auth);
     let routes = user_route.or(status_route).or(auth_route);
 
@@ -66,14 +72,25 @@ async fn auth(
     config: Arc<Mutex<Config>>,
     client_ip: Option<IpAddr>,
     auth_header: Option<String>,
+    bypass: Option<String>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     log::debug!(
-        "Auth request from {:?} with auth {:?}",
+        "Auth request from {:?} with auth {:?} and bypass {:?}",
         client_ip.clone(),
-        auth_header.clone()
+        auth_header.clone(),
+        bypass.clone()
     );
     let mut config = config.lock().await;
     let mut authorized = false;
+
+    // Check the bypass query param
+    if bypass.is_some()
+        && config.auth_options.bypass.is_some()
+        && bypass == config.auth_options.bypass
+    {
+        authorized = true;
+    }
+
     if client_ip.is_some() {
         let client_ip = client_ip.unwrap();
         let ip_exists = config.auth_options.ips.contains_key(&client_ip);
@@ -87,6 +104,7 @@ async fn auth(
             let map = &config.auth_options.passwords.clone();
             let user = map.get(&auth_header.replace("Basic ", ""));
             if user.is_some() {
+                log::debug!("Found user {:?}", user);
                 let user = user.unwrap();
                 authorized = true;
                 let entry = config.auth_options.ips.entry(client_ip).or_insert(vec![]);

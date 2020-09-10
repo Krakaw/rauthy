@@ -4,7 +4,7 @@ mod server;
 use crate::config::command::UserCommand;
 use crate::error::NginxAuthError;
 use crate::server::server::start;
-use clap::{App, Arg};
+use clap::{App, Arg, ArgSettings};
 use config::config::Config;
 use env_logger::Env;
 
@@ -35,6 +35,16 @@ async fn main() -> Result<(), NginxAuthError> {
                             .takes_value(true)
                             .about("Adds a password for basic auth"),
                     ),
+            )
+            .subcommand(
+                App::new("bypass").about("Add a bypass key").arg(
+                    Arg::with_name("key")
+                        .short('k')
+                        .takes_value(true)
+                        .required(true)
+                        .setting(ArgSettings::AllowEmptyValues)
+                        .about("Adds a bypass key available as a query parameter"),
+                ),
             )
             .subcommand(
                 App::new("cmd")
@@ -74,6 +84,19 @@ async fn main() -> Result<(), NginxAuthError> {
         config.auth_options.remove_user(username.clone());
         config.auth_options.add_user(username.clone(), password);
         config.write().await?;
+        return Ok(());
+    }
+
+    if let Some(matches) = matches.subcommand_matches("bypass") {
+        let bypass =
+            matches
+                .value_of("key")
+                .and_then(|s| if s == "" { None } else { Some(s.to_string()) });
+
+        log::info!("Setting bypass key to: {:?}", bypass);
+        config.auth_options.add_bypass(bypass);
+        config.write().await?;
+
         return Ok(());
     }
 

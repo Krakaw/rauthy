@@ -34,6 +34,7 @@ pub struct AuthOptions {
     pub ips: HashMap<IpAddr, Vec<Username>>,
     pub passwords: HashMap<String, Username>,
     pub commands: HashMap<Username, Vec<UserCommand>>,
+    pub bypass: Option<String>,
 }
 
 impl AuthOptions {
@@ -56,5 +57,9 @@ impl AuthOptions {
         for empty in empties {
             self.passwords.remove(&empty);
         }
+    }
+
+    pub fn add_bypass(&mut self, bypass: Option<String>) {
+        self.bypass = bypass;
     }
 }
