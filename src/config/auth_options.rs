@@ -34,7 +34,7 @@ pub struct AuthOptions {
     pub ips: HashMap<IpAddr, Vec<Username>>,
     pub passwords: HashMap<String, Username>,
     pub commands: HashMap<Username, Vec<UserCommand>>,
-    pub bypass: Option<String>,
+    pub tokens: HashMap<String, Username>,
 }
 
 impl AuthOptions {
@@ -59,7 +59,19 @@ impl AuthOptions {
         }
     }
 
-    pub fn add_bypass(&mut self, bypass: Option<String>) {
-        self.bypass = bypass;
+    pub fn check_token(&mut self, token: &String) -> Option<Username> {
+        self.tokens.get(token).map(|u| u.clone())
+    }
+
+    pub fn add_token(&mut self, token: String, username: Username) {
+        self.tokens.insert(token, username);
+    }
+
+    pub fn remove_token(&mut self, token: String) {
+        self.tokens.remove(&token);
+    }
+
+    pub fn clear_tokens(&mut self) {
+        self.tokens = HashMap::new();
     }
 }

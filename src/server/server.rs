@@ -6,6 +6,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use warp::filters::path::Tail;
 use warp::http::{HeaderMap, StatusCode};
 use warp::Filter;
 
@@ -16,8 +17,8 @@ pub struct AddUser {
 }
 
 #[derive(Deserialize, Default)]
-struct Bypass {
-    bypass: Option<String>,
+struct AuthQuery {
+    token: Option<String>,
 }
 
 pub async fn start(config: Config) -> Result<(), NginxAuthError> {
@@ -38,6 +39,7 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
             None
         }
     });
+
     let status_route = warp::path("status").map(|| StatusCode::OK);
     let user_route = warp::path("user")
         .and(warp::post())
@@ -48,7 +50,9 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
         .and(config.clone())
         .and(ips)
         .and(warp::header::optional::<String>("authorization"))
-        .and(warp::query().map(|r: Bypass| r.bypass))
+        .and(warp::header::optional::<String>("x-bypass-token"))
+        .and(warp::query().map(|r: AuthQuery| r.token))
+        .and(warp::path::tail().map(|s: Tail| s.as_str().to_string()))
         .and_then(auth);
     let routes = user_route.or(status_route).or(auth_route);
 
@@ -72,24 +76,45 @@ async fn auth(
     config: Arc<Mutex<Config>>,
     client_ip: Option<IpAddr>,
     auth_header: Option<String>,
-    bypass: Option<String>,
+    bypass_token_header: Option<String>,
+    bypass_token_query: Option<String>,
+    bypass_token_path: String,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     log::debug!(
-        "Auth request from {:?} with auth {:?} and bypass {:?}",
+        "Auth request from {:?} with auth {:?} and query token {:?} header token {:?} path token {:?}",
         client_ip.clone(),
         auth_header.clone(),
-        bypass.clone()
+        bypass_token_query.clone(),
+        bypass_token_header.clone(),
+        bypass_token_path.clone()
     );
     let mut config = config.lock().await;
-    let mut authorized = false;
 
-    // Check the bypass query param
-    if bypass.is_some()
-        && config.auth_options.bypass.is_some()
-        && bypass == config.auth_options.bypass
-    {
-        authorized = true;
-    }
+    let mut authorized = {
+        let mut bypass_authorized = false;
+        // Check the bypass query param
+        if bypass_token_query.is_some() {
+            bypass_authorized = config
+                .auth_options
+                .check_token(&bypass_token_query.unwrap())
+                .is_some();
+        } else if bypass_token_header.is_some() {
+            bypass_authorized = config
+                .auth_options
+                .check_token(&bypass_token_header.unwrap())
+                .is_some();
+        } else {
+            let parts = bypass_token_path.split('/').collect::<Vec<&str>>();
+            if !parts.is_empty() {
+                let token = parts
+                    .last()
+                    .map(|s| s.to_string())
+                    .unwrap_or("".to_string());
+                bypass_authorized = config.auth_options.check_token(&token).is_some()
+            }
+        }
+        bypass_authorized
+    };
 
     if client_ip.is_some() {
         let client_ip = client_ip.unwrap();
@@ -134,7 +159,7 @@ async fn auth(
     let result = if authorized {
         (StatusCode::OK, "X-Pre-Authenticated", "True".to_string())
     } else {
-        log::debug!("Invalid IP and password, requesting auth.");
+        log::debug!("Invalid credentials or IP, requesting auth.");
         (
             StatusCode::UNAUTHORIZED,
             "WWW-Authenticate",
