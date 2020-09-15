@@ -1,11 +1,11 @@
 [package]
-name = "nginx-auth"
+name = "Rauthy"
 version = "0.2.1"
 authors = ["Krakaw <41575888+Krakaw@users.noreply.github.com>"]
 edition = "2018"
 
 [[bin]]
-name = "nginx-auth"
+name = "rauthy"
 path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

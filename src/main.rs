@@ -15,10 +15,10 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 async fn main() -> Result<(), NginxAuthError> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
     let matches =
-        App::new("nginx-auth")
+        App::new("rauthy")
             .version(VERSION)
             .author("Krakaw <41575888+Krakaw@users.noreply.github.com>")
-            .about("An auth proxy for nginx")
+            .about("An auth proxy service")
             .subcommand(
                 App::new("user")
                     .about("Add basic auth users")

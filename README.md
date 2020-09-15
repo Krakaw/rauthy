@@ -7,18 +7,18 @@ after initial auth is complete, that IP no longer requires to send the basic aut
 
 Ensure your nginx configuration supports [subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/)
 
-Download the latest release from [Github](https://github.com/Krakaw/nginx-auth/releases)
+Download the latest release from [Github](https://github.com/Krakaw/rauthy/releases)
 
 Set your .env
 
 ```bash
-curl https://raw.githubusercontent.com/Krakaw/nginx-auth/master/.env.sample -o .env
+curl https://raw.githubusercontent.com/Krakaw/rauthy/master/.env.sample -o .env
 # Add a username and password
-nginx-auth user -u username -p password
+rauthy user -u username -p password
 # Add an optional command to be run on successful auth
-nginx-auth cmd -u username -c 'echo "my command"'
+rauthy cmd -u username -c 'echo "my command"'
 # Start the server
-./nginx-auth
+./rauthy
 ```
 
 Configure nginx
@@ -43,15 +43,15 @@ location = /auth {
 ### Docker
 
 ```bash
-docker build -t nginx-auth:latest .
+docker build -t rauthy:latest .
 docker-compose up
 ```
 
 ### Installation
 
 ```bash
-git clone https://github.com/Krakaw/nginx-auth.git
-cd nginx-auth
+git clone https://github.com/Krakaw/rauthy.git
+cd rauthy
 cp .env.sample .env
 cargo run
 ```

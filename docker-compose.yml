@@ -1,7 +1,7 @@
 version: '3'
 services:
   api:
-    image: quay.io/krakaw/nginx-auth:latest
+    image: quay.io/krakaw/rauthy:latest
     environment:
       - LISTEN=0.0.0.0:3031
       - BASIC_AUTH_MESSAGE="Once off auth wall"

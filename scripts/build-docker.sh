@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 TAG="${1:-latest}"
-NAME="${2:-nginx-auth}"
+NAME="${2:-proxy-auth}"
 DOCKER_BUILDKIT=1 docker build -t "$NAME:$TAG" --progress=plain .
 
 if [ -n "$SSH_HOST" ]; then
