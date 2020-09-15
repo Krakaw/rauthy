@@ -1,6 +1,6 @@
-# Nginx Auth
+# Rauthy
 
-Nginx Auth is a simple web server that requires an IP to first enter basic auth information,
+Rauthy is a simple web server that requires an IP to first enter basic auth information,
 after initial auth is complete, that IP no longer requires to send the basic auth headers with each request.
 
 ## Usage
