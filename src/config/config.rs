@@ -19,7 +19,8 @@ impl Config {
             .unwrap_or("127.0.0.1:3031".to_string())
             .parse()
             .unwrap();
-        let message = dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("".to_string());
+        let message =
+            dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("Rauthy 🦖🛡️ says no!".to_string());
         let auth_file = dotenv::var("AUTH_FILE").ok();
         let auth_options = Self::load_file(auth_file.clone()).await.unwrap_or_default();
         Ok(Config {

@@ -1,4 +1,4 @@
-# Rauthy
+# Rauthy 🦖🛡️
 
 Rauthy is a simple web server that requires an IP to first enter basic auth information,
 after initial auth is complete, that IP no longer requires to send the basic auth headers with each request.
