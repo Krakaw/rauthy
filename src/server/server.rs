@@ -1,3 +1,4 @@
+use crate::config::command::UserCommand;
 use crate::config::config::Config;
 use crate::error::NginxAuthError;
 use log::info;
@@ -13,7 +14,9 @@ use warp::Filter;
 #[derive(Deserialize)]
 pub struct AddUser {
     pub username: String,
-    pub password: String,
+    pub password: Option<String>,
+    pub token: Option<String>,
+    pub command: Option<UserCommand>,
 }
 
 #[derive(Deserialize, Default)]
@@ -65,8 +68,33 @@ pub async fn add_user(
     config: Arc<Mutex<Config>>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut config = config.lock().await;
-    config.auth_options.remove_user(user.username.clone());
-    config.auth_options.add_user(user.username, user.password);
+    let username = user.username;
+    let password = user
+        .password
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty());
+    if password.is_some() {
+        config
+            .auth_options
+            .remove_password_by_user(username.clone());
+        config
+            .auth_options
+            .add_password(username.clone(), password.unwrap());
+    }
+
+    let token = user
+        .token
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty());
+    if token.is_some() {
+        let token_string = token.unwrap();
+        config.auth_options.remove_token(&token_string);
+        config
+            .auth_options
+            .add_token(token_string, username.clone().into());
+    }
+
+    if user.command.is_some() {}
     config.write().await?;
 
     Ok(StatusCode::CREATED)

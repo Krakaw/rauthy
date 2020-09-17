@@ -5,6 +5,7 @@ use std::process::{Command, Output};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct UserCommand {
+    pub name: Option<String>,
     pub path: Option<String>,
     pub command: String,
 }

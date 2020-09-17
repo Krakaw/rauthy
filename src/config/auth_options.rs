@@ -7,6 +7,7 @@ use std::net::IpAddr;
 
 #[derive(Hash, Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq)]
 pub struct Username(String);
+
 impl std::fmt::Display for Username {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -42,20 +43,20 @@ impl AuthOptions {
         serde_json::from_str(str.as_str()).unwrap_or_default()
     }
 
-    pub fn add_user(&mut self, username: String, password: String) {
+    pub fn add_password(&mut self, username: String, password: String) {
         let encoded = base64::encode_config(format!("{}:{}", username, password), base64::URL_SAFE);
         self.passwords.insert(encoded, username.into());
     }
 
-    pub fn remove_user(&mut self, username: String) {
-        let empties: Vec<_> = self
+    pub fn remove_password_by_user(&mut self, username: String) {
+        let passwords_for_user: Vec<_> = self
             .passwords
             .iter()
-            .filter(|(_, v)| v == &&username)
+            .filter(|(_, u)| u == &&username)
             .map(|(k, _)| k.clone())
             .collect();
-        for empty in empties {
-            self.passwords.remove(&empty);
+        for password in passwords_for_user {
+            self.passwords.remove(&password);
         }
     }
 
@@ -67,11 +68,40 @@ impl AuthOptions {
         self.tokens.insert(token, username);
     }
 
-    pub fn remove_token(&mut self, token: String) {
-        self.tokens.remove(&token);
+    pub fn remove_token(&mut self, token: &String) {
+        self.tokens.remove(token);
     }
 
     pub fn clear_tokens(&mut self) {
         self.tokens = HashMap::new();
+    }
+
+    pub fn add_command(&mut self, username: &Username, command: UserCommand) {
+        let command_name = command.name.clone();
+        if command_name.is_some() {
+            self.remove_command_by_name(username, command_name.unwrap());
+        }
+        let commands = self.commands.entry(username.clone()).or_insert(vec![]);
+        commands.push(command);
+    }
+
+    pub fn remove_command_by_name(&mut self, username: &Username, command_name: String) {
+        let commands = self.commands.entry(username.clone()).or_insert(vec![]);
+        commands.drain_filter(|c| c.name.contains(&command_name));
+    }
+
+    pub fn remove_command_by_index(&mut self, username: &Username, command_index: usize) {
+        let commands = self.commands.entry(username.clone()).or_insert(vec![]);
+        if commands.len() > command_index {
+            commands.remove(command_index);
+        }
+    }
+
+    pub fn remove_all_commands(&mut self, username: Option<Username>) {
+        if username.is_some() {
+            self.commands.remove(&username.unwrap());
+        } else {
+            self.commands.clear();
+        }
     }
 }

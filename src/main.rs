@@ -1,7 +1,10 @@
+#![feature(drain_filter)]
+#![feature(option_result_contains)]
 mod config;
 mod error;
 mod server;
 
+use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
 use crate::error::NginxAuthError;
 use crate::server::server::start;
@@ -76,6 +79,12 @@ async fn main() -> Result<(), NginxAuthError> {
                             .about("Adds a command for this username"),
                     )
                     .arg(
+                        Arg::with_name("name")
+                            .short('n')
+                            .takes_value(true)
+                            .about("A name for the command"),
+                    )
+                    .arg(
                         Arg::with_name("command")
                             .short('c')
                             .required_unless("clear")
@@ -100,8 +109,10 @@ async fn main() -> Result<(), NginxAuthError> {
         let username = matches.value_of("username").unwrap().to_string();
         let password = matches.value_of("password").unwrap().to_string();
         log::info!("Adding user: {}", username);
-        config.auth_options.remove_user(username.clone());
-        config.auth_options.add_user(username.clone(), password);
+        config
+            .auth_options
+            .remove_password_by_user(username.clone());
+        config.auth_options.add_password(username.clone(), password);
         config.write().await?;
         return Ok(());
     }
@@ -117,7 +128,7 @@ async fn main() -> Result<(), NginxAuthError> {
                 .filter(|s| !s.is_empty())
                 .unwrap();
             log::info!("Removing token: {:?}", token);
-            config.auth_options.remove_token(token);
+            config.auth_options.remove_token(&token);
         } else if matches.is_present("add-token") {
             let token = matches
                 .value_of("add-token")
@@ -138,34 +149,35 @@ async fn main() -> Result<(), NginxAuthError> {
 
     if let Some(matches) = matches.subcommand_matches("cmd") {
         if matches.is_present("clear") {
-            let log_username;
-            if let Some(username) = matches.value_of("username").map(String::from) {
-                log_username = username.clone();
-                config.auth_options.commands.remove(&username.into());
-            } else {
-                log_username = "all users".to_string();
-                config.auth_options.commands.clear();
-            }
-            log::info!("Clearing commands for {}", log_username);
+            let username = matches.value_of("username").map(|s| s.to_string().into());
+            config.auth_options.remove_all_commands(username.clone());
+            log::info!(
+                "Clearing commands for {}",
+                username.unwrap_or("All Users".to_string().into())
+            );
             config.write().await?;
             return Ok(());
         }
-        let username = matches.value_of("username").unwrap().to_string();
+        let username: Username = matches.value_of("username").unwrap().to_string().into();
         let path = matches.value_of("path").map(|s| s.to_string());
         let command = matches.value_of("command").unwrap().to_string();
+        let name = matches.value_of("name").map(|s| s.to_string());
 
         log::info!(
-            "Adding command for user: {} - `cd {:?} && {}`",
+            "Adding command for user: {} called: {:?} - `cd {:?} && {}`",
             username,
+            name,
             path,
             command
         );
-        let commands = config
-            .auth_options
-            .commands
-            .entry(username.into())
-            .or_insert(vec![]);
-        commands.push(UserCommand { path, command });
+        config.auth_options.add_command(
+            &username,
+            UserCommand {
+                name,
+                path,
+                command,
+            },
+        );
         config.write().await?;
         return Ok(());
     }
