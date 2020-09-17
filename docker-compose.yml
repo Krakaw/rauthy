@@ -4,7 +4,7 @@ services:
     image: quay.io/krakaw/rauthy:latest
     environment:
       - LISTEN=0.0.0.0:3031
-      - BASIC_AUTH_MESSAGE="Once off auth wall"
+      - BASIC_AUTH_MESSAGE="Rauthy 🦖🛡️ says no!"
       - AUTH_FILE=/root/config/auth.json
     ports:
       - 3031:3031
