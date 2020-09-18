@@ -8,7 +8,7 @@ use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
 use crate::error::NginxAuthError;
 use crate::server::server::start;
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
 use config::config::Config;
 use env_logger::Env;
 
@@ -17,92 +17,7 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 #[tokio::main]
 async fn main() -> Result<(), NginxAuthError> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
-    let matches =
-        App::new("rauthy")
-            .version(VERSION)
-            .author("Krakaw <41575888+Krakaw@users.noreply.github.com>")
-            .about("An auth proxy service")
-            .subcommand(
-                App::new("user")
-                    .about("Add basic auth users")
-                    .arg(
-                        Arg::with_name("username")
-                            .short('u')
-                            .required(true)
-                            .takes_value(true)
-                            .about("Adds a username for basic auth"),
-                    )
-                    .arg(
-                        Arg::with_name("password")
-                            .short('p')
-                            .required(true)
-                            .takes_value(true)
-                            .about("Adds a password for basic auth"),
-                    ),
-            )
-            .subcommand(
-                App::new("bypass")
-                    .about("Manage bypass tokens")
-                    .arg(
-                        Arg::with_name("username")
-                            .short('u')
-                            .takes_value(true)
-                            .required_unless_one(&["remove-token", "clear-tokens"])
-                            .about("Username for the token"),
-                    )
-                    .arg(
-                        Arg::with_name("add-token")
-                            .short('a')
-                            .takes_value(true)
-                            .about("Adds a bypass token available as a query parameter"),
-                    )
-                    .arg(
-                        Arg::with_name("remove-token")
-                            .short('r')
-                            .takes_value(true)
-                            .about("Removes a bypass token"),
-                    )
-                    .arg(
-                        Arg::with_name("clear-tokens")
-                            .short('c')
-                            .about("Clears the bypass tokens"),
-                    ),
-            )
-            .subcommand(
-                App::new("cmd")
-                    .about("Add a command for a user")
-                    .arg(
-                        Arg::with_name("username")
-                            .short('u')
-                            .required_unless("clear")
-                            .takes_value(true)
-                            .about("Adds a command for this username"),
-                    )
-                    .arg(
-                        Arg::with_name("name")
-                            .short('n')
-                            .takes_value(true)
-                            .about("A name for the command"),
-                    )
-                    .arg(
-                        Arg::with_name("command")
-                            .short('c')
-                            .required_unless("clear")
-                            .takes_value(true)
-                            .about("The command to be executed"),
-                    )
-                    .arg(
-                        Arg::with_name("path")
-                            .short('p')
-                            .required(false)
-                            .takes_value(true)
-                            .about("The path for command execution"),
-                    )
-                    .arg(Arg::with_name("clear").short('C').about(
-                        "Clear all commands for this user if supplied otherwise all commands",
-                    )),
-            )
-            .get_matches();
+    let matches = build_app();
 
     let mut config = Config::new().await?;
     if let Some(matches) = matches.subcommand_matches("user") {
@@ -184,4 +99,94 @@ async fn main() -> Result<(), NginxAuthError> {
 
     start(config).await?;
     Ok(())
+}
+
+fn build_app() -> ArgMatches {
+    App::new("rauthy")
+        .version(VERSION)
+        .author("Krakaw <41575888+Krakaw@users.noreply.github.com>")
+        .about("An auth proxy service")
+        .subcommand(
+            App::new("user")
+                .about("Add basic auth users")
+                .arg(
+                    Arg::with_name("username")
+                        .short('u')
+                        .required(true)
+                        .takes_value(true)
+                        .about("Adds a username for basic auth"),
+                )
+                .arg(
+                    Arg::with_name("password")
+                        .short('p')
+                        .required(true)
+                        .takes_value(true)
+                        .about("Adds a password for basic auth"),
+                ),
+        )
+        .subcommand(
+            App::new("bypass")
+                .about("Manage bypass tokens")
+                .arg(
+                    Arg::with_name("username")
+                        .short('u')
+                        .takes_value(true)
+                        .required_unless_one(&["remove-token", "clear-tokens"])
+                        .about("Username for the token"),
+                )
+                .arg(
+                    Arg::with_name("add-token")
+                        .short('a')
+                        .takes_value(true)
+                        .about("Adds a bypass token available as a query parameter"),
+                )
+                .arg(
+                    Arg::with_name("remove-token")
+                        .short('r')
+                        .takes_value(true)
+                        .about("Removes a bypass token"),
+                )
+                .arg(
+                    Arg::with_name("clear-tokens")
+                        .short('c')
+                        .about("Clears the bypass tokens"),
+                ),
+        )
+        .subcommand(
+            App::new("cmd")
+                .about("Add a command for a user")
+                .arg(
+                    Arg::with_name("username")
+                        .short('u')
+                        .required_unless("clear")
+                        .takes_value(true)
+                        .about("Adds a command for this username"),
+                )
+                .arg(
+                    Arg::with_name("name")
+                        .short('n')
+                        .takes_value(true)
+                        .about("A name for the command"),
+                )
+                .arg(
+                    Arg::with_name("command")
+                        .short('c')
+                        .required_unless("clear")
+                        .takes_value(true)
+                        .about("The command to be executed"),
+                )
+                .arg(
+                    Arg::with_name("path")
+                        .short('p')
+                        .required(false)
+                        .takes_value(true)
+                        .about("The path for command execution"),
+                )
+                .arg(
+                    Arg::with_name("clear").short('C').about(
+                        "Clear all commands for this user if supplied otherwise all commands",
+                    ),
+                ),
+        )
+        .get_matches()
 }
