@@ -46,11 +46,19 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
         if headers.contains_key("http-client-ip") {
             headers
                 .get("http-client-ip")
-                .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
+                .map(|h| h.to_str().unwrap_or(""))
+                .filter(|s| !s.is_empty())
+                .map(|h| IpAddr::from_str(h))
+                .filter(|ip| ip.is_ok())
+                .map(|ip| ip.unwrap())
         } else if headers.contains_key("x-forwarded-for") {
             headers
                 .get("x-forwarded-for")
-                .map(|h| IpAddr::from_str(h.to_str().unwrap()).unwrap())
+                .map(|h| h.to_str().unwrap_or(""))
+                .filter(|s| !s.is_empty())
+                .map(|h| IpAddr::from_str(h))
+                .filter(|ip| ip.is_ok())
+                .map(|ip| ip.unwrap())
         } else {
             None
         }
@@ -181,7 +189,7 @@ async fn auth(
     };
 
     if client_ip.is_some() {
-        let client_ip = client_ip.unwrap();
+        let client_ip = client_ip.unwrap_or(IpAddr::from([0, 0, 0, 0]));
         let ip_exists = config.auth_options.ips.contains_key(&client_ip);
         if ip_exists {
             log::debug!("IP found, authorizing");
