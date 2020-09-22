@@ -1,4 +1,4 @@
-FROM rust:1.45.1 as builder
+FROM rustlang/rust:nightly-stretch-slim as builder
 WORKDIR /usr/src/rauthy
 RUN echo "fn main() {}" > dummy.rs
 COPY Cargo.toml .
