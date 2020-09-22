@@ -12,8 +12,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::filters::path::Tail;
-use warp::http::{HeaderMap, StatusCode};
-use warp::Filter;
+use warp::http::response::Builder;
+use warp::http::{HeaderMap, HeaderValue, StatusCode};
+use warp::{Filter, Reply};
 
 #[derive(Deserialize)]
 pub struct AddUser {
@@ -28,6 +29,7 @@ struct AuthQuery {
     token: Option<String>,
 }
 
+#[derive(Debug)]
 enum AuthenticationType {
     BasicAuth,
     BypassTokenHeader,
@@ -87,9 +89,7 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
     Ok(())
 }
 
-pub async fn reload_config(
-    config: Arc<Mutex<Config>>,
-) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn reload_config(config: Arc<Mutex<Config>>) -> Result<impl Reply, warp::Rejection> {
     log::debug!("Reloading config");
     let new_conf = Config::new().await?;
     let mut config = config.lock().await;
@@ -100,7 +100,7 @@ pub async fn reload_config(
 pub async fn add_user(
     user: AddUser,
     config: Arc<Mutex<Config>>,
-) -> Result<impl warp::Reply, warp::Rejection> {
+) -> Result<impl Reply, warp::Rejection> {
     let mut config = config.lock().await;
     let username = user.username;
     let password = user
@@ -141,7 +141,7 @@ async fn auth(
     bypass_token_header: Option<String>,
     bypass_token_query: Option<String>,
     bypass_token_path: String,
-) -> Result<impl warp::Reply, warp::Rejection> {
+) -> Result<impl Reply, warp::Rejection> {
     log::debug!(
         "Auth request from {:?} with auth {:?} and query token {:?} header token {:?} path token {:?}",
         client_ip.clone(),
@@ -151,26 +151,28 @@ async fn auth(
         bypass_token_path.clone()
     );
     let mut config = config.lock().await;
-    let mut logged_in_user: Option<&Username> = None;
 
-    let mut authorized = {
+    let (mut authorized, mut logged_in_user) = {
         let mut bypass_authorized = Unauthenticated;
+        let mut logged_in_user: Option<Username> = None;
         // Check the bypass query param
         if bypass_token_query.is_some() {
-            if config
+            if let Some(user) = config
                 .auth_options
                 .check_token(&bypass_token_query.unwrap())
-                .is_some()
             {
                 bypass_authorized = BypassTokenQuery;
+                logged_in_user = Some(user.clone());
+                log::debug!("Query token matched user: {:?}", logged_in_user);
             };
         } else if bypass_token_header.is_some() {
-            if config
+            if let Some(user) = config
                 .auth_options
                 .check_token(&bypass_token_header.unwrap())
-                .is_some()
             {
                 bypass_authorized = BypassTokenHeader;
+                logged_in_user = Some(user.clone());
+                log::debug!("Header token matched user: {:?}", logged_in_user);
             };
         } else {
             let parts = bypass_token_path.split('/').collect::<Vec<&str>>();
@@ -179,13 +181,17 @@ async fn auth(
                     .last()
                     .map(|s| s.to_string())
                     .unwrap_or("".to_string());
-                if config.auth_options.check_token(&token).is_some() {
+                if let Some(user) = config.auth_options.check_token(&token) {
                     bypass_authorized = BypassTokenPath;
+                    logged_in_user = Some(user.clone());
+                    log::debug!("Path token matched user: {:?}", logged_in_user);
+                } else {
+                    log::debug!("No tokens matched");
                 };
             }
         }
 
-        bypass_authorized
+        (bypass_authorized, logged_in_user)
     };
 
     if client_ip.is_some() {
@@ -194,17 +200,23 @@ async fn auth(
         if ip_exists {
             log::debug!("IP found, authorizing");
             authorized = ClientIp;
+        } else {
+            log::debug!("IP not authorized");
         }
     }
 
     //Check the basic auth
     let password_map = &config.auth_options.passwords.clone();
     if let Some(auth_header) = auth_header {
-        logged_in_user = password_map.get(&auth_header.replace("Basic ", ""));
+        logged_in_user = password_map
+            .get(&auth_header.replace("Basic ", ""))
+            .cloned();
 
         if logged_in_user.is_some() {
-            log::debug!("Found user {:?}", logged_in_user);
+            log::debug!("Found basic auth user {:?}", logged_in_user);
             authorized = BasicAuth;
+        } else {
+            log::debug!("No basic auth user found.");
         }
     }
 
@@ -213,19 +225,19 @@ async fn auth(
         let user = logged_in_user.unwrap();
         if let Some(client_ip) = client_ip {
             let entry = config.auth_options.ips.entry(client_ip).or_insert(vec![]);
-            if entry.iter().filter(|u| u == &user).count() == 0 {
+            if entry.iter().filter(|u| u == &&user).count() == 0 {
                 entry.push(user.clone());
             }
 
             config.write().await?;
             info!(
-                "Successful Authentication for '{}' from '{}' - adding ip to allowlist",
+                "Successful Authentication for '{}' from '{}' - adding ip to allow list",
                 user,
                 client_ip.clone()
             );
         }
 
-        if let Some(commands) = config.auth_options.commands.get(user) {
+        if let Some(commands) = config.auth_options.commands.get(&user) {
             for command in commands {
                 log::debug!("Executing command {}", command);
                 let output = command.run();
@@ -234,19 +246,29 @@ async fn auth(
         };
     }
 
-    let reply = warp::reply::reply();
     let result = match authorized {
         Unauthenticated => {
             log::debug!("Invalid credentials or IP, requesting auth.");
-            (
-                StatusCode::UNAUTHORIZED,
-                "WWW-Authenticate",
-                format!("Basic realm=\"{}\"", config.message),
-            )
+            Builder::new()
+                .status(StatusCode::UNAUTHORIZED)
+                .header("X-Rauthy-Authenticated", HeaderValue::from_static("False"))
+                .header(
+                    "WWW-Authenticate",
+                    HeaderValue::from_str(format!("Basic realm=\"{}\"", config.message).as_str())
+                        .unwrap(),
+                )
         }
-        _ => (StatusCode::OK, "X-Pre-Authenticated", "True".to_string()),
+        _ => {
+            let src = format!("{:?}", authorized);
+            Builder::new()
+                .status(StatusCode::OK)
+                .header("X-Rauthy-Authenticated", HeaderValue::from_static("True"))
+                .header(
+                    "X-Rauthy-Auth-Type",
+                    HeaderValue::from_str(src.clone().as_str()).unwrap(),
+                )
+        }
     };
 
-    let reply = warp::reply::with_status(reply, result.0);
-    Ok(warp::reply::with_header(reply, result.1, result.2))
+    Ok(result.body("").unwrap())
 }
