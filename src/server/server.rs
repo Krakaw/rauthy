@@ -5,7 +5,6 @@ use crate::error::NginxAuthError;
 use crate::server::server::AuthenticationType::{
     BasicAuth, BypassTokenHeader, BypassTokenPath, BypassTokenQuery, ClientIp, Unauthenticated,
 };
-use log::info;
 use serde::Deserialize;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -29,7 +28,7 @@ struct AuthQuery {
     token: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum AuthenticationType {
     BasicAuth,
     BypassTokenHeader,
@@ -41,6 +40,7 @@ enum AuthenticationType {
 
 pub async fn start(config: Config) -> Result<(), NginxAuthError> {
     let listen = config.listen.clone();
+    log::info!("Starting Rauthy on: {:?}", listen);
     let config = Arc::new(Mutex::new(config));
     let config = warp::any().map(move || Arc::clone(&config));
 
@@ -90,47 +90,55 @@ pub async fn start(config: Config) -> Result<(), NginxAuthError> {
 }
 
 pub async fn reload_config(config: Arc<Mutex<Config>>) -> Result<impl Reply, warp::Rejection> {
-    log::debug!("Reloading config");
+    log::info!("Reloading config");
     let new_conf = Config::new().await?;
     let mut config = config.lock().await;
     config.auth_options = new_conf.auth_options;
     Ok(StatusCode::OK)
 }
 
+#[derive(Debug)]
+struct InvalidUserName;
+
+impl warp::reject::Reject for InvalidUserName {}
+
 pub async fn add_user(
     user: AddUser,
     config: Arc<Mutex<Config>>,
 ) -> Result<impl Reply, warp::Rejection> {
     let mut config = config.lock().await;
-    let username = user.username;
-    let password = user
+    let username = user.username.trim().to_string();
+    if username.is_empty() {
+        log::error!("Empty username");
+        return Err(warp::reject::custom(InvalidUserName));
+    }
+    if let Some(password) = user
         .password
-        .map(|p| p.trim().to_string())
-        .filter(|p| !p.is_empty());
-    if password.is_some() {
+        .map(|p| p.to_string())
+        .filter(|p| !p.is_empty())
+    {
         config
             .auth_options
             .remove_password_by_user(username.clone());
-        config
-            .auth_options
-            .add_password(username.clone(), password.unwrap());
+        config.auth_options.add_password(username.clone(), password);
+        log::info!("Added Basic auth for user: {}", username);
     }
 
-    let token = user
-        .token
-        .map(|t| t.trim().to_string())
-        .filter(|t| !t.is_empty());
-    if token.is_some() {
-        let token_string = token.unwrap();
+    if let Some(token_string) = user.token.map(|t| t.to_string()).filter(|t| !t.is_empty()) {
         config.auth_options.remove_token(&token_string);
         config
             .auth_options
             .add_token(token_string, username.clone().into());
+        log::info!("Added Bypass token auth for user: {}", username);
     }
 
-    if user.command.is_some() {}
+    if let Some(command) = user.command {
+        config
+            .auth_options
+            .add_command(&username.clone().into(), command);
+    }
     config.write().await?;
-
+    log::info!("Stored user details for: {}", username);
     Ok(StatusCode::CREATED)
 }
 
@@ -151,48 +159,8 @@ async fn auth(
         bypass_token_path.clone()
     );
     let mut config = config.lock().await;
-
-    let (mut authorized, mut logged_in_user) = {
-        let mut bypass_authorized = Unauthenticated;
-        let mut logged_in_user: Option<Username> = None;
-        // Check the bypass query param
-        if bypass_token_query.is_some() {
-            if let Some(user) = config
-                .auth_options
-                .check_token(&bypass_token_query.unwrap())
-            {
-                bypass_authorized = BypassTokenQuery;
-                logged_in_user = Some(user.clone());
-                log::debug!("Query token matched user: {:?}", logged_in_user);
-            };
-        } else if bypass_token_header.is_some() {
-            if let Some(user) = config
-                .auth_options
-                .check_token(&bypass_token_header.unwrap())
-            {
-                bypass_authorized = BypassTokenHeader;
-                logged_in_user = Some(user.clone());
-                log::debug!("Header token matched user: {:?}", logged_in_user);
-            };
-        } else {
-            let parts = bypass_token_path.split('/').collect::<Vec<&str>>();
-            if !parts.is_empty() {
-                let token = parts
-                    .last()
-                    .map(|s| s.to_string())
-                    .unwrap_or("".to_string());
-                if let Some(user) = config.auth_options.check_token(&token) {
-                    bypass_authorized = BypassTokenPath;
-                    logged_in_user = Some(user.clone());
-                    log::debug!("Path token matched user: {:?}", logged_in_user);
-                } else {
-                    log::debug!("No tokens matched");
-                };
-            }
-        }
-
-        (bypass_authorized, logged_in_user)
-    };
+    let mut logged_in_user: Option<Username> = None;
+    let mut authorized = Unauthenticated;
 
     if client_ip.is_some() {
         let client_ip = client_ip.unwrap_or(IpAddr::from([0, 0, 0, 0]));
@@ -205,13 +173,13 @@ async fn auth(
         }
     }
 
-    //Check the basic auth
-    let password_map = &config.auth_options.passwords.clone();
-    if let Some(auth_header) = auth_header {
+    if authorized == Unauthenticated && auth_header.is_some() {
+        //Check the basic auth
+        let password_map = &config.auth_options.passwords.clone();
+        let auth_header = auth_header.unwrap();
         logged_in_user = password_map
             .get(&auth_header.replace("Basic ", ""))
             .cloned();
-
         if logged_in_user.is_some() {
             log::debug!("Found basic auth user {:?}", logged_in_user);
             authorized = BasicAuth;
@@ -220,17 +188,55 @@ async fn auth(
         }
     }
 
-    if logged_in_user.is_some() {
+    if authorized == Unauthenticated && bypass_token_query.is_some() {
+        if let Some(user) = config
+            .auth_options
+            .check_token(&bypass_token_query.unwrap())
+        {
+            authorized = BypassTokenQuery;
+            logged_in_user = Some(user.clone());
+            log::debug!("Query token matched user: {:?}", logged_in_user);
+        };
+    }
+
+    if authorized == Unauthenticated && bypass_token_header.is_some() {
+        if let Some(user) = config
+            .auth_options
+            .check_token(&bypass_token_header.unwrap())
+        {
+            authorized = BypassTokenHeader;
+            logged_in_user = Some(user.clone());
+            log::debug!("Header token matched user: {:?}", logged_in_user);
+        };
+    }
+
+    if authorized == Unauthenticated && !bypass_token_path.trim().is_empty() {
+        let parts = bypass_token_path.split('/').collect::<Vec<&str>>();
+        let token = parts
+            .last()
+            .map(|s| s.to_string())
+            .unwrap_or("".to_string());
+        if let Some(user) = config.auth_options.check_token(&token) {
+            authorized = BypassTokenPath;
+            logged_in_user = Some(user.clone());
+            log::debug!("Path token matched user: {:?}", logged_in_user);
+        } else {
+            log::debug!("No tokens matched");
+        };
+    }
+
+    if authorized != Unauthenticated && authorized != ClientIp && logged_in_user.is_some() {
         log::debug!("Found user {:?}", logged_in_user);
         let user = logged_in_user.unwrap();
         if let Some(client_ip) = client_ip {
+            // Add the client ip
             let entry = config.auth_options.ips.entry(client_ip).or_insert(vec![]);
             if entry.iter().filter(|u| u == &&user).count() == 0 {
                 entry.push(user.clone());
             }
 
             config.write().await?;
-            info!(
+            log::info!(
                 "Successful Authentication for '{}' from '{}' - adding ip to allow list",
                 user,
                 client_ip.clone()
