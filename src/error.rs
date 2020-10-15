@@ -1,11 +1,11 @@
-use crate::error::NginxAuthError::ConfigError;
+use crate::error::RauthyError::ConfigError;
 use serde::export::Formatter;
 use std::error::Error;
 use std::fmt::{Display, Result};
 use warp::Rejection;
 
 #[derive(Debug)]
-pub enum NginxAuthError {
+pub enum RauthyError {
     Generic,
     CommandError(String),
     ServerError(String),
@@ -13,36 +13,36 @@ pub enum NginxAuthError {
     UserCommandError(String),
 }
 
-impl Error for NginxAuthError {}
+impl Error for RauthyError {}
 
-impl Display for NginxAuthError {
+impl Display for RauthyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            NginxAuthError::CommandError(s) => write!(f, "Command Execution Error: {}", s),
-            NginxAuthError::ServerError(s) => write!(f, "Server Error: {}", s),
-            NginxAuthError::ConfigError(s) => write!(f, "Config Error: {}", s),
-            NginxAuthError::Generic => write!(f, "General Error"),
-            NginxAuthError::UserCommandError(s) => write!(f, "User Command Error: {}", s),
+            RauthyError::CommandError(s) => write!(f, "Command Execution Error: {}", s),
+            RauthyError::ServerError(s) => write!(f, "Server Error: {}", s),
+            RauthyError::ConfigError(s) => write!(f, "Config Error: {}", s),
+            RauthyError::Generic => write!(f, "General Error"),
+            RauthyError::UserCommandError(s) => write!(f, "User Command Error: {}", s),
         }
     }
 }
 
-impl From<std::io::Error> for NginxAuthError {
+impl From<std::io::Error> for RauthyError {
     fn from(e: std::io::Error) -> Self {
         ConfigError(e.to_string())
     }
 }
 
-impl From<serde_json::Error> for NginxAuthError {
+impl From<serde_json::Error> for RauthyError {
     fn from(e: serde_json::Error) -> Self {
         ConfigError(e.to_string())
     }
 }
 
-impl warp::reject::Reject for NginxAuthError {}
+impl warp::reject::Reject for RauthyError {}
 
-impl From<NginxAuthError> for Rejection {
-    fn from(e: NginxAuthError) -> Self {
+impl From<RauthyError> for Rejection {
+    fn from(e: RauthyError) -> Self {
         warp::reject::custom(e)
     }
 }

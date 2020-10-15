@@ -1,5 +1,5 @@
 use crate::config::auth_options::AuthOptions;
-use crate::error::NginxAuthError;
+use crate::error::RauthyError;
 use std::net::SocketAddr;
 use tokio::fs::File;
 use tokio::prelude::*; // for write_all()
@@ -13,7 +13,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub async fn new() -> Result<Self, NginxAuthError> {
+    pub async fn new() -> Result<Self, RauthyError> {
         dotenv::dotenv().ok();
         let listen: SocketAddr = dotenv::var("LISTEN")
             .unwrap_or("127.0.0.1:3031".to_string())
@@ -31,7 +31,7 @@ impl Config {
         })
     }
 
-    pub async fn load_file(auth_file: Option<String>) -> Result<AuthOptions, NginxAuthError> {
+    pub async fn load_file(auth_file: Option<String>) -> Result<AuthOptions, RauthyError> {
         if let Some(auth_file) = auth_file {
             let contents = tokio::fs::read_to_string(auth_file.clone()).await?;
             Ok(AuthOptions::from_string(contents))
@@ -40,12 +40,12 @@ impl Config {
         }
     }
 
-    pub async fn write(&self) -> Result<(), NginxAuthError> {
+    pub async fn write(&self) -> Result<(), RauthyError> {
         if let Some(auth_file) = self.auth_file.clone() {
             let mut file = File::create(auth_file.clone()).await?;
             let json = serde_json::to_string(&self.auth_options)?;
             file.write_all(json.as_bytes()).await.map_err(|_| {
-                NginxAuthError::ConfigError(format!("Error writing to {}", auth_file))
+                RauthyError::ConfigError(format!("Error writing to {}", auth_file))
             })?;
             log::trace!("Successfully wrote {}", auth_file)
         }

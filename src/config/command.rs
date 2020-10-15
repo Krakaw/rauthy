@@ -1,4 +1,4 @@
-use crate::error::NginxAuthError;
+use crate::error::RauthyError;
 use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Output};
@@ -11,14 +11,14 @@ pub struct UserCommand {
 }
 
 impl UserCommand {
-    pub fn run(&self) -> Result<Output, NginxAuthError> {
+    pub fn run(&self) -> Result<Output, RauthyError> {
         let mut command = Command::new(self.command.clone());
         if let Some(current_dir) = self.path.clone() {
             command.current_dir(current_dir);
         }
         Ok(command
             .output()
-            .map_err(|e| NginxAuthError::CommandError(e.to_string()))?)
+            .map_err(|e| RauthyError::CommandError(e.to_string()))?)
     }
 }
 

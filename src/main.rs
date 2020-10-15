@@ -6,7 +6,7 @@ mod server;
 
 use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
-use crate::error::NginxAuthError;
+use crate::error::RauthyError;
 use crate::server::server::start;
 use clap::{App, Arg, ArgMatches};
 use config::config::Config;
@@ -15,7 +15,7 @@ use env_logger::Env;
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
-async fn main() -> Result<(), NginxAuthError> {
+async fn main() -> Result<(), RauthyError> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
     let matches = build_app();
 

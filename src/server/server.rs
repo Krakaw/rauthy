@@ -1,7 +1,7 @@
 use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
 use crate::config::config::Config;
-use crate::error::NginxAuthError;
+use crate::error::RauthyError;
 use crate::server::server::AuthenticationType::{
     BasicAuth, BypassTokenHeader, BypassTokenPath, BypassTokenQuery, ClientIp, Unauthenticated,
 };
@@ -38,7 +38,7 @@ enum AuthenticationType {
     Unauthenticated,
 }
 
-pub async fn start(config: Config) -> Result<(), NginxAuthError> {
+pub async fn start(config: Config) -> Result<(), RauthyError> {
     let listen = config.listen.clone();
     log::info!("Starting Rauthy on: {:?}", listen);
     let config = Arc::new(Mutex::new(config));
