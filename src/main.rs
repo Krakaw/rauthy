@@ -11,6 +11,8 @@ use crate::server::server::start;
 use clap::{App, Arg, ArgMatches};
 use config::config::Config;
 use env_logger::Env;
+use std::collections::HashMap;
+use std::net::IpAddr;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -95,6 +97,41 @@ async fn main() -> Result<(), RauthyError> {
         );
         config.write().await?;
         return Ok(());
+    }
+
+    if let Some(matches) = matches.subcommand_matches("ip") {
+        if matches.is_present("clear") {
+            log::info!(
+                "Clearing all {} IP addresses",
+                config.auth_options.ips.len()
+            );
+            config.auth_options.ips = HashMap::new();
+            config.write().await?;
+            return Ok(());
+        } else if matches.is_present("add") {
+            let ip = matches
+                .value_of("add")
+                .map(|ip| ip.parse::<IpAddr>().unwrap())
+                .unwrap();
+            let username: Option<Username> = matches
+                .value_of("username")
+                .filter(|u| !u.is_empty())
+                .map(|u| u.into());
+
+            config.auth_options.add_ip_and_user(ip, username.as_ref());
+            config.write().await?;
+            log::info!("Adding ip: {} for username: {:?}", ip, username);
+            return Ok(());
+        } else if matches.is_present("delete") {
+            let ip = matches
+                .value_of("delete")
+                .map(|ip| ip.parse::<IpAddr>().unwrap())
+                .unwrap();
+            config.auth_options.remove_ip(&ip);
+            config.write().await?;
+            log::info!("Removed IP address {}", ip);
+            return Ok(());
+        }
     }
 
     start(config).await?;
@@ -186,6 +223,36 @@ fn build_app() -> ArgMatches {
                     Arg::with_name("clear").short('C').about(
                         "Clear all commands for this user if supplied otherwise all commands",
                     ),
+                ),
+        )
+        .subcommand(
+            App::new("ip")
+                .about("Manage ip addresses")
+                .arg(
+                    Arg::with_name("delete")
+                        .short('d')
+                        .required_unless_one(&["add", "clear"])
+                        .takes_value(true)
+                        .about("Delete an authorized IP"),
+                )
+                .arg(
+                    Arg::with_name("add")
+                        .short('a')
+                        .required_unless_one(&["delete", "clear"])
+                        .takes_value(true)
+                        .about("Add an authorized IP"),
+                )
+                .arg(
+                    Arg::with_name("username")
+                        .short('u')
+                        .requires("add")
+                        .takes_value(true)
+                        .about("Add a username for the IP address"),
+                )
+                .arg(
+                    Arg::with_name("clear")
+                        .short('C')
+                        .about("Clear all IP addresses"),
                 ),
         )
         .get_matches()

@@ -44,9 +44,9 @@ impl Config {
         if let Some(auth_file) = self.auth_file.clone() {
             let mut file = File::create(auth_file.clone()).await?;
             let json = serde_json::to_string(&self.auth_options)?;
-            file.write_all(json.as_bytes()).await.map_err(|_| {
-                RauthyError::ConfigError(format!("Error writing to {}", auth_file))
-            })?;
+            file.write_all(json.as_bytes())
+                .await
+                .map_err(|_| RauthyError::ConfigError(format!("Error writing to {}", auth_file)))?;
             log::trace!("Successfully wrote {}", auth_file)
         }
 

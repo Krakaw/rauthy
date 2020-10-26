@@ -30,6 +30,12 @@ impl From<String> for Username {
     }
 }
 
+impl From<&str> for Username {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct AuthOptions {
     pub ips: HashMap<IpAddr, Vec<Username>>,
@@ -103,5 +109,18 @@ impl AuthOptions {
         } else {
             self.commands.clear();
         }
+    }
+
+    pub fn add_ip_and_user(&mut self, ip: IpAddr, username: Option<&Username>) {
+        let entry = self.ips.entry(ip).or_insert(vec![]);
+        if let Some(username) = username {
+            if entry.iter().filter(|u| u == &username).count() == 0 {
+                entry.push(username.clone());
+            }
+        }
+    }
+
+    pub fn remove_ip(&mut self, ip: &IpAddr) {
+        self.ips.remove(ip);
     }
 }

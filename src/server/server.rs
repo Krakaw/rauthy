@@ -230,10 +230,7 @@ async fn auth(
         let user = logged_in_user.unwrap();
         if let Some(client_ip) = client_ip {
             // Add the client ip
-            let entry = config.auth_options.ips.entry(client_ip).or_insert(vec![]);
-            if entry.iter().filter(|u| u == &&user).count() == 0 {
-                entry.push(user.clone());
-            }
+            config.auth_options.add_ip_and_user(client_ip, Some(&user));
 
             config.write().await?;
             log::info!(
