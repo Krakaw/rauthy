@@ -1,6 +1,6 @@
 [package]
 name = "Rauthy"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Krakaw <41575888+Krakaw@users.noreply.github.com>"]
 edition = "2018"
 
