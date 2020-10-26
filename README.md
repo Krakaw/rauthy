@@ -11,6 +11,22 @@ Download the latest release from [Github](https://github.com/Krakaw/rauthy/relea
 
 Set your .env
 
+### Clients
+
+There are multiple ways to authenticate against Rauthy
+
+##### IP Auth
+
+##### Basic Auth
+
+##### Authorization TOKEN header
+
+##### X-Bypass-Token TOKEN header
+
+##### Query parameter ?token=TOKEN
+
+##### Path parameter /path/parameters/TOKEN
+
 ```bash
 curl https://raw.githubusercontent.com/Krakaw/rauthy/master/.env.sample -o .env
 # Add a username and password
