@@ -1,7 +1,7 @@
 # Rauthy 🦖🛡️
 
-Rauthy is a simple web server that requires an IP to first enter basic auth information,
-after initial auth is complete, that IP no longer requires to send the basic auth headers with each request.
+Rauthy is a simple web service that requires a user to first authenticate using a query token, a header token or a basic auth username and password.
+After they have authenticated their IP is stored and that IP will no longer require any authentication.
 
 ## Usage
 
