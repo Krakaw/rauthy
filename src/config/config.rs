@@ -11,6 +11,7 @@ pub struct Config {
     pub auth_file: Option<String>,
     pub auth_options: AuthOptions,
     pub include_user_header: bool,
+    pub ignore_ip: bool,
 }
 
 impl Config {
@@ -27,6 +28,11 @@ impl Config {
             .ok()
             .map(|b| b.parse().unwrap_or(false))
             .unwrap_or_else(|| false);
+        let ignore_ip = dotenv::var("IGNORE_IP")
+            .ok()
+            .map(|b| b.parse().unwrap_or(false))
+            .unwrap_or_else(|| false);
+
         let auth_options = Self::load_file(auth_file.clone()).await.unwrap_or_default();
         Ok(Config {
             listen,
@@ -34,6 +40,7 @@ impl Config {
             auth_file,
             auth_options,
             include_user_header,
+            ignore_ip,
         })
     }
 

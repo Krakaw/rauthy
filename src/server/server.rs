@@ -162,7 +162,7 @@ async fn auth(
     let mut logged_in_user: Option<Username> = None;
     let mut authorized = Unauthenticated;
 
-    if client_ip.is_some() {
+    if client_ip.is_some() && !config.ignore_ip {
         let client_ip = client_ip.unwrap_or(IpAddr::from([0, 0, 0, 0]));
         let ip_exists = config.auth_options.ips.contains_key(&client_ip);
         if ip_exists {
