@@ -225,9 +225,9 @@ async fn auth(
         };
     }
 
-    if authorized != Unauthenticated && authorized != ClientIp && logged_in_user.is_some() {
+    if authorized != Unauthenticated && authorized != ClientIp && logged_in_user.clone().is_some() {
         log::debug!("Found user {:?}", logged_in_user);
-        let user = logged_in_user.unwrap();
+        let user = logged_in_user.clone().unwrap();
         if let Some(client_ip) = client_ip {
             // Add the client ip
             config.auth_options.add_ip_and_user(client_ip, Some(&user));
@@ -263,13 +263,18 @@ async fn auth(
         }
         _ => {
             let src = format!("{:?}", authorized);
-            Builder::new()
+            let mut builder = Builder::new()
                 .status(StatusCode::OK)
                 .header("X-Rauthy-Authenticated", HeaderValue::from_static("True"))
                 .header(
                     "X-Rauthy-Auth-Type",
                     HeaderValue::from_str(src.clone().as_str()).unwrap(),
-                )
+                );
+            if config.include_user_header && logged_in_user.is_some() {
+                let user = logged_in_user.unwrap().to_string();
+                builder = builder.header("X-Rauthy-User", HeaderValue::from_str(&*user).unwrap());
+            }
+            builder
         }
     };
 

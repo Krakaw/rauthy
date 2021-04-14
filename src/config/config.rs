@@ -10,6 +10,7 @@ pub struct Config {
     pub message: String,
     pub auth_file: Option<String>,
     pub auth_options: AuthOptions,
+    pub include_user_header: bool,
 }
 
 impl Config {
@@ -22,12 +23,17 @@ impl Config {
         let message =
             dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("Rauthy 🦖🛡️ says no!".to_string());
         let auth_file = dotenv::var("AUTH_FILE").ok();
+        let include_user_header = dotenv::var("INCLUDE_USER_HEADER")
+            .ok()
+            .map(|b| b.parse().unwrap_or(false))
+            .unwrap_or_else(|| false);
         let auth_options = Self::load_file(auth_file.clone()).await.unwrap_or_default();
         Ok(Config {
             listen,
             message,
             auth_file,
             auth_options,
+            include_user_header,
         })
     }
 
