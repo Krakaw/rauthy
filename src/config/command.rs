@@ -1,7 +1,7 @@
 use crate::error::RauthyError;
-use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Output};
+use std::fmt::Formatter;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct UserCommand {

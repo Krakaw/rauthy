@@ -2,7 +2,8 @@ use crate::config::auth_options::AuthOptions;
 use crate::error::RauthyError;
 use std::net::SocketAddr;
 use tokio::fs::File;
-use tokio::prelude::*; // for write_all()
+use tokio::prelude::*;
+
 
 #[derive(Clone)]
 pub struct Config {

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use warp::filters::path::Tail;
 use warp::http::response::Builder;
 use warp::http::{HeaderMap, HeaderValue, StatusCode};
@@ -92,7 +92,7 @@ pub async fn start(config: Config) -> Result<(), RauthyError> {
 pub async fn reload_config(config: Arc<Mutex<Config>>) -> Result<impl Reply, warp::Rejection> {
     log::info!("Reloading config");
     let new_conf = Config::new().await?;
-    let mut config = config.lock().await;
+    let mut config = config.lock().map_err(|e| warp::reject::custom(RauthyError::ConfigPoison))?;
     config.auth_options = new_conf.auth_options;
     Ok(StatusCode::OK)
 }
@@ -106,11 +106,11 @@ pub async fn add_user(
     user: AddUser,
     config: Arc<Mutex<Config>>,
 ) -> Result<impl Reply, warp::Rejection> {
-    let mut config = config.lock().await;
+    let mut config = config.lock().map_err(|e| warp::reject::custom(RauthyError::ConfigPoison))?;
     let username = user.username.trim().to_string();
     if username.is_empty() {
         log::error!("Empty username");
-        return Err(warp::reject::custom(InvalidUserName));
+        return Err(warp::reject::custom(RauthyError::InvalidUserName));
     }
     if let Some(password) = user
         .password
@@ -137,7 +137,7 @@ pub async fn add_user(
             .auth_options
             .add_command(&username.clone().into(), command);
     }
-    config.write().await?;
+    config.write().await.map_err(|e| warp::reject::custom(RauthyError::ConfigPoison))?;
     log::info!("Stored user details for: {}", username);
     Ok(StatusCode::CREATED)
 }
@@ -158,7 +158,7 @@ async fn auth(
         bypass_token_header.clone(),
         bypass_token_path.clone()
     );
-    let mut config = config.lock().await;
+    let mut config = config.lock().map_err(|e| warp::reject::custom(RauthyError::ConfigPoison))?;
     let mut logged_in_user: Option<Username> = None;
     let mut authorized = Unauthenticated;
 

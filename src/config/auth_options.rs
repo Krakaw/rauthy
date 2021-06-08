@@ -1,9 +1,11 @@
 use crate::config::command::UserCommand;
-use serde::export::Formatter;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::net::IpAddr;
+use crate::proxy::proxy_options::{ProxyOptions, ProxyEndpoint};
+use std::fmt::Formatter;
 
 #[derive(Hash, Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq)]
 pub struct Username(String);
@@ -42,6 +44,7 @@ pub struct AuthOptions {
     pub passwords: HashMap<String, Username>,
     pub commands: HashMap<Username, Vec<UserCommand>>,
     pub tokens: HashMap<String, Username>,
+    pub proxy: ProxyOptions,
 }
 
 impl AuthOptions {
@@ -122,5 +125,14 @@ impl AuthOptions {
 
     pub fn remove_ip(&mut self, ip: &IpAddr) {
         self.ips.remove(ip);
+    }
+
+    pub fn add_proxy(&mut self, forward_url: String, client_ip: IpAddr, forward_replace: Option<String>) {
+        self.proxy.proxies.drain_filter(|p| p.forward_url == forward_url);
+        self.proxy.proxies.push(ProxyEndpoint {
+            forward_url,
+            forward_replace,
+            client_ip
+        });
     }
 }

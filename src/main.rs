@@ -3,6 +3,7 @@
 mod config;
 mod error;
 mod server;
+mod proxy;
 
 use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
@@ -147,14 +148,14 @@ fn build_app() -> ArgMatches {
             App::new("user")
                 .about("Add basic auth users")
                 .arg(
-                    Arg::with_name("username")
+                    Arg::new("username")
                         .short('u')
                         .required(true)
                         .takes_value(true)
                         .about("Adds a username for basic auth"),
                 )
                 .arg(
-                    Arg::with_name("password")
+                    Arg::new("password")
                         .short('p')
                         .required(true)
                         .takes_value(true)
@@ -165,26 +166,26 @@ fn build_app() -> ArgMatches {
             App::new("bypass")
                 .about("Manage bypass tokens")
                 .arg(
-                    Arg::with_name("username")
+                    Arg::new("username")
                         .short('u')
                         .takes_value(true)
-                        .required_unless_one(&["remove-token", "clear-tokens"])
+                        .required_unless_present_any(&["remove-token", "clear-tokens"])
                         .about("Username for the token"),
                 )
                 .arg(
-                    Arg::with_name("add-token")
+                    Arg::new("add-token")
                         .short('a')
                         .takes_value(true)
                         .about("Adds a bypass token available as a query parameter"),
                 )
                 .arg(
-                    Arg::with_name("remove-token")
+                    Arg::new("remove-token")
                         .short('r')
                         .takes_value(true)
                         .about("Removes a bypass token"),
                 )
                 .arg(
-                    Arg::with_name("clear-tokens")
+                    Arg::new("clear-tokens")
                         .short('c')
                         .about("Clears the bypass tokens"),
                 ),
@@ -193,34 +194,34 @@ fn build_app() -> ArgMatches {
             App::new("cmd")
                 .about("Add a command for a user")
                 .arg(
-                    Arg::with_name("username")
+                    Arg::new("username")
                         .short('u')
-                        .required_unless("clear")
+                        .required_unless_present("clear")
                         .takes_value(true)
                         .about("Adds a command for this username"),
                 )
                 .arg(
-                    Arg::with_name("name")
+                    Arg::new("name")
                         .short('n')
                         .takes_value(true)
                         .about("A name for the command"),
                 )
                 .arg(
-                    Arg::with_name("command")
+                    Arg::new("command")
                         .short('c')
-                        .required_unless("clear")
+                        .required_unless_present("clear")
                         .takes_value(true)
                         .about("The command to be executed"),
                 )
                 .arg(
-                    Arg::with_name("path")
+                    Arg::new("path")
                         .short('p')
                         .required(false)
                         .takes_value(true)
                         .about("The path for command execution"),
                 )
                 .arg(
-                    Arg::with_name("clear").short('C').about(
+                    Arg::new("clear").short('C').about(
                         "Clear all commands for this user if supplied otherwise all commands",
                     ),
                 ),
@@ -229,31 +230,32 @@ fn build_app() -> ArgMatches {
             App::new("ip")
                 .about("Manage ip addresses")
                 .arg(
-                    Arg::with_name("delete")
+                    Arg::new("delete")
                         .short('d')
-                        .required_unless_one(&["add", "clear"])
+                        .required_unless_present_any(&["add", "clear"])
                         .takes_value(true)
                         .about("Delete an authorized IP"),
                 )
                 .arg(
-                    Arg::with_name("add")
+                    Arg::new("add")
                         .short('a')
-                        .required_unless_one(&["delete", "clear"])
+                        .required_unless_present_any(&["delete", "clear"])
                         .takes_value(true)
                         .about("Add an authorized IP"),
                 )
                 .arg(
-                    Arg::with_name("username")
+                    Arg::new("username")
                         .short('u')
                         .requires("add")
                         .takes_value(true)
                         .about("Add a username for the IP address"),
                 )
                 .arg(
-                    Arg::with_name("clear")
+                    Arg::new("clear")
                         .short('C')
                         .about("Clear all IP addresses"),
                 ),
         )
+        .subcommand(App::new("proxy").about("Lightweight proxy service").arg(Arg::new("add").short('a')))
         .get_matches()
 }
