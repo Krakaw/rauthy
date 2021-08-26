@@ -2,8 +2,8 @@
 #![feature(option_result_contains)]
 mod config;
 mod error;
-mod server;
 mod proxy;
+mod server;
 
 use crate::config::auth_options::Username;
 use crate::config::command::UserCommand;
@@ -250,12 +250,12 @@ fn build_app() -> ArgMatches {
                         .takes_value(true)
                         .about("Add a username for the IP address"),
                 )
-                .arg(
-                    Arg::new("clear")
-                        .short('C')
-                        .about("Clear all IP addresses"),
-                ),
+                .arg(Arg::new("clear").short('C').about("Clear all IP addresses")),
         )
-        .subcommand(App::new("proxy").about("Lightweight proxy service").arg(Arg::new("add").short('a')))
+        .subcommand(
+            App::new("proxy")
+                .about("Lightweight proxy service")
+                .arg(Arg::new("add").short('a')),
+        )
         .get_matches()
 }

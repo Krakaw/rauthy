@@ -2,8 +2,6 @@ use crate::config::auth_options::AuthOptions;
 use crate::error::RauthyError;
 use std::net::SocketAddr;
 use tokio::fs::File;
-use tokio::prelude::*;
-
 
 #[derive(Clone)]
 pub struct Config {
@@ -43,9 +41,9 @@ impl Config {
 
     pub async fn write(&self) -> Result<(), RauthyError> {
         if let Some(auth_file) = self.auth_file.clone() {
-            let mut file = File::create(auth_file.clone()).await?;
+            let _file = File::create(auth_file.clone()).await?;
             let json = serde_json::to_string(&self.auth_options)?;
-            file.write_all(json.as_bytes())
+            tokio::fs::write(auth_file.clone(), json.as_bytes())
                 .await
                 .map_err(|_| RauthyError::ConfigError(format!("Error writing to {}", auth_file)))?;
             log::trace!("Successfully wrote {}", auth_file)
