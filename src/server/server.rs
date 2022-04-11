@@ -36,6 +36,7 @@ enum AuthenticationType {
     BypassTokenPath,
     ClientIp,
     Unauthenticated,
+    DomainRegex,
 }
 
 pub async fn start(config: Config) -> Result<(), RauthyError> {
@@ -82,6 +83,7 @@ pub async fn start(config: Config) -> Result<(), RauthyError> {
         .and(warp::header::optional::<String>("x-bypass-token"))
         .and(warp::query().map(|r: AuthQuery| r.token))
         .and(warp::path::tail().map(|s: Tail| s.as_str().to_string()))
+        .and(warp::header::optional::<String>("host"))
         .and_then(auth);
     let routes = user_route.or(reload_route).or(status_route).or(auth_route);
 
@@ -149,20 +151,32 @@ async fn auth(
     bypass_token_header: Option<String>,
     bypass_token_query: Option<String>,
     bypass_token_path: String,
+    host: Option<String>,
 ) -> Result<impl Reply, warp::Rejection> {
     log::debug!(
-        "Auth request from {:?} with auth {:?} and query token {:?} header token {:?} path token {:?}",
+        "Auth request from {:?} with auth {:?} and query token {:?} header token {:?} path token {:?} from host {:?}",
         client_ip.clone(),
         auth_header.clone(),
         bypass_token_query.clone(),
         bypass_token_header.clone(),
-        bypass_token_path.clone()
+        bypass_token_path.clone(),
+        host.clone()
     );
+
     let mut config = config.lock().await;
     let mut logged_in_user: Option<Username> = None;
     let mut authorized = Unauthenticated;
 
-    if client_ip.is_some() && !config.ignore_ip {
+    if authorized == Unauthenticated && host.is_some() && !config.auth_options.domains.is_empty() {
+        let host = &host.unwrap();
+        let host_matches = config.auth_options.domains.iter().any(|r| r.is_match(host));
+        if host_matches {
+            log::debug!("Domain matches bypass regex, authorizing");
+            authorized = AuthenticationType::DomainRegex;
+        }
+    }
+
+    if authorized == Unauthenticated && client_ip.is_some() && !config.ignore_ip {
         let client_ip = client_ip.unwrap_or(IpAddr::from([0, 0, 0, 0]));
         let ip_exists = config.auth_options.ips.contains_key(&client_ip);
         if ip_exists {

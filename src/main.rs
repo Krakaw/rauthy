@@ -11,6 +11,7 @@ use crate::server::server::start;
 use clap::{App, Arg, ArgMatches};
 use config::config::Config;
 use env_logger::Env;
+use regex::Regex;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
@@ -31,6 +32,34 @@ async fn main() -> Result<(), RauthyError> {
             .remove_password_by_user(username.clone());
         config.auth_options.add_password(username.clone(), password);
         config.write().await?;
+        return Ok(());
+    }
+
+    if let Some(matches) = matches.subcommand_matches("domain") {
+        if matches.is_present("clear-domains") {
+            log::info!("Clearing all domain regexes");
+            config.auth_options.clear_domain_regexes();
+        } else if matches.is_present("remove-domain") {
+            let domain_regex = matches
+                .value_of("remove-domain")
+                .map(|s| Regex::new(s))
+                .unwrap()?;
+            log::info!("Removing domain regex: {:?}", domain_regex);
+            config.auth_options.remove_domain_regex(&domain_regex);
+        } else if matches.is_present("add-domain") {
+            let domain_regex = matches
+                .value_of("add-domain")
+                .map(|s| Regex::new(s))
+                .unwrap()?;
+            log::info!("Adding domain regex: {:?}", domain_regex);
+            config.auth_options.add_domain_regex(domain_regex);
+        } else {
+            log::error!("No parameters supplied");
+            return Ok(());
+        }
+
+        config.write().await?;
+
         return Ok(());
     }
 
@@ -159,6 +188,27 @@ fn build_app() -> ArgMatches {
                         .required(true)
                         .takes_value(true)
                         .about("Adds a password for basic auth"),
+                ),
+        )
+        .subcommand(
+            App::new("domain")
+                .about("Add a domain regex to bypass auth")
+                .arg(
+                    Arg::with_name("remove-domain")
+                        .short('r')
+                        .takes_value(true)
+                        .about("Remove a domain regex that bypasses auth"),
+                )
+                .arg(
+                    Arg::with_name("add-domain")
+                        .short('a')
+                        .takes_value(true)
+                        .about("Adds a domain regex to bypass auth"),
+                )
+                .arg(
+                    Arg::with_name("clear-domains")
+                        .short('c')
+                        .about("Removes all domain regex bypasses"),
                 ),
         )
         .subcommand(

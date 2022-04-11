@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use tokio::fs::File;
 use tokio::prelude::*; // for write_all()
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub listen: SocketAddr,
     pub message: String,
@@ -21,9 +21,9 @@ impl Config {
             .unwrap_or("127.0.0.1:3031".to_string())
             .parse()
             .unwrap();
-        let message =
-            dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("Rauthy 🦖🛡️ says no!".to_string());
+        let message = dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("Rauthy says no!".to_string());
         let auth_file = dotenv::var("AUTH_FILE").ok();
+        println!("Auth file {:?}", auth_file);
         let include_user_header = dotenv::var("INCLUDE_USER_HEADER")
             .ok()
             .map(|b| b.parse().unwrap_or(false))
@@ -60,7 +60,9 @@ impl Config {
             file.write_all(json.as_bytes())
                 .await
                 .map_err(|_| RauthyError::ConfigError(format!("Error writing to {}", auth_file)))?;
-            log::trace!("Successfully wrote {}", auth_file)
+            log::debug!("Successfully wrote {}", auth_file)
+        } else {
+            log::trace!("No config file configured")
         }
 
         Ok(())

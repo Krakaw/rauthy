@@ -27,6 +27,8 @@ There are multiple ways to authenticate against Rauthy
 
 ##### Path parameter /path/parameters/TOKEN
 
+##### Domain matching bypass
+
 ```bash
 curl https://raw.githubusercontent.com/Krakaw/rauthy/master/.env.sample -o .env
 # Add a username and password

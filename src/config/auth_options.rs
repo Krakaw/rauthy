@@ -1,4 +1,5 @@
 use crate::config::command::UserCommand;
+use regex::Regex;
 use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,12 +37,14 @@ impl From<&str> for Username {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct AuthOptions {
     pub ips: HashMap<IpAddr, Vec<Username>>,
     pub passwords: HashMap<String, Username>,
     pub commands: HashMap<Username, Vec<UserCommand>>,
     pub tokens: HashMap<String, Username>,
+    #[serde(with = "serde_regex")]
+    pub domains: Vec<Regex>, // Regex matches for domains
 }
 
 impl AuthOptions {
@@ -122,5 +125,19 @@ impl AuthOptions {
 
     pub fn remove_ip(&mut self, ip: &IpAddr) {
         self.ips.remove(ip);
+    }
+
+    pub fn add_domain_regex(&mut self, regex: Regex) {
+        self.remove_domain_regex(&regex);
+        self.domains.push(regex);
+    }
+
+    pub fn remove_domain_regex(&mut self, regex: &Regex) {
+        let regex_str = regex.as_str();
+        self.domains.drain_filter(|e| e.as_str().eq(regex_str));
+    }
+
+    pub fn clear_domain_regexes(&mut self) {
+        self.domains = vec![];
     }
 }

@@ -11,6 +11,7 @@ pub enum RauthyError {
     ServerError(String),
     ConfigError(String),
     UserCommandError(String),
+    RegexError(String),
 }
 
 impl Error for RauthyError {}
@@ -23,6 +24,7 @@ impl Display for RauthyError {
             RauthyError::ConfigError(s) => write!(f, "Config Error: {}", s),
             RauthyError::Generic => write!(f, "General Error"),
             RauthyError::UserCommandError(s) => write!(f, "User Command Error: {}", s),
+            RauthyError::RegexError(s) => write!(f, "Regex Error: {}", s),
         }
     }
 }
@@ -39,6 +41,11 @@ impl From<serde_json::Error> for RauthyError {
     }
 }
 
+impl From<regex::Error> for RauthyError {
+    fn from(e: regex::Error) -> Self {
+        Self::RegexError(e.to_string())
+    }
+}
 impl warp::reject::Reject for RauthyError {}
 
 impl From<RauthyError> for Rejection {
