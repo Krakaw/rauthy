@@ -23,7 +23,6 @@ impl Config {
             .unwrap();
         let message = dotenv::var("BASIC_AUTH_MESSAGE").unwrap_or("Rauthy says no!".to_string());
         let auth_file = dotenv::var("AUTH_FILE").ok();
-        println!("Auth file {:?}", auth_file);
         let include_user_header = dotenv::var("INCLUDE_USER_HEADER")
             .ok()
             .map(|b| b.parse().unwrap_or(false))
